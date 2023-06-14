@@ -200,7 +200,7 @@ geneEvents <- function(events, geneS, fdr = 0.05, deltaPSI = 0.1){
 #' @import methods
 
 filterByEventId <- function(events, event_id, 
-                            type = c("A3SS", "A5SS", "SE", "RI", "MXE")){
+                            type = c("A3SS", "A5SS", "SE", "RI", "MXE"), empty_slots = T){
   
   if(!is(events, "Maser")){
     stop("Parameter events has to be a maser object.")
@@ -223,8 +223,10 @@ filterByEventId <- function(events, event_id,
   events_filt <- filterByIds(type, events, event_id[is.event])
   
   # Create empty slots for remaining types
-  for (atype in as_types[-1*grep(type, as_types)]){
-    events_filt <- c(events_filt, filterByIds(atype, events, 0))
+  if (empty_slots) {
+    for (atype in as_types[-1*grep(type, as_types)]){
+      events_filt <- c(events_filt, filterByIds(atype, events, 0))
+    }
   }
   
   events_filt[["n_cond1"]] <- events$n_cond1
