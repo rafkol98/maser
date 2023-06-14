@@ -168,59 +168,62 @@ maser <- function(path, cond_labels,
     
     events <- read.table(paste0(path, f), sep = "\t",
                          stringsAsFactors = FALSE, header = TRUE)
-    type <-  unlist(strsplit(f, ".", fixed = TRUE))[1]
     
-    # prepare read counts matrix
-    inc1 <- strsplit(events[ , counts.col[1]], ",")
-    inc2 <- strsplit(events[ , counts.col[2]], ",")
-    
-    reads.inc1 <- suppressWarnings(matrix(as.numeric(unlist(inc1)), 
-                 nrow = length(inc1), ncol = length(inc1[[1]]), byrow = TRUE))
-    
-    reads.inc2 <- suppressWarnings(matrix(as.numeric(unlist(inc2)), 
-                 nrow = length(inc2), ncol = length(inc2[[1]]), byrow = TRUE))
-    
-    reads.mat <- cbind(reads.inc1, reads.inc2)
-    rownames(reads.mat) <- events$ID
-    col_names <- c(paste0(cond_labels[1], "_", seq(1, length(inc1[[1]]), 1)),
-                   paste0(cond_labels[2], "_", seq(1, length(inc2[[1]]), 1)) )
-    
-    colnames(reads.mat) <- col_names
-    slot(mats, paste0(type,"_","counts")) <- reads.mat
-    
-    # prepare PSI matrix
-    inc1 <- strsplit(events[ , "IncLevel1"], ",")
-    inc2 <- strsplit(events[ , "IncLevel2"], ",")
-    
-    reads.inc1 <- suppressWarnings(matrix(as.numeric(unlist(inc1)), 
+    # If the file for this AS type contains at least one event, continue with the analysis.
+    if (nrow(events) > 0) {
+      type <-  unlist(strsplit(f, ".", fixed = TRUE))[1]
+      
+      # prepare read counts matrix
+      inc1 <- strsplit(events[ , counts.col[1]], ",")
+      inc2 <- strsplit(events[ , counts.col[2]], ",")
+      
+      reads.inc1 <- suppressWarnings(matrix(as.numeric(unlist(inc1)), 
                    nrow = length(inc1), ncol = length(inc1[[1]]), byrow = TRUE))
-    
-    reads.inc2 <- suppressWarnings(matrix(as.numeric(unlist(inc2)), 
+      
+      reads.inc2 <- suppressWarnings(matrix(as.numeric(unlist(inc2)), 
                    nrow = length(inc2), ncol = length(inc2[[1]]), byrow = TRUE))
-    
-    reads.mat <- cbind(reads.inc1, reads.inc2)
-    
-    rownames(reads.mat) <- events$ID
-    colnames(reads.mat) <- col_names
-    slot(mats, paste0(type,"_","PSI")) <- reads.mat
-    
-    # Number of samples condition 1 and 2
-    mats@n_cond1 <- length(inc1[[1]])
-    mats@n_cond2 <- length(inc2[[1]])
-    mats@conditions <- cond_labels
-
-    # rMATS stats
-    slot(mats, paste0(type,"_","stats")) <-
-      events[ , c("ID", "PValue", "FDR", "IncLevelDifference")]
-    
-    # Genomic ranges of alternative splicing events
-    grl <- create_GRanges(events, type)
-    slot(mats, paste0(type,"_","gr")) <- grl
-    
-    # Event annotation
-    slot(mats, paste0(type,"_","events")) <-
-      events[ , c("ID", "GeneID", "geneSymbol")]
-    
+      
+      reads.mat <- cbind(reads.inc1, reads.inc2)
+      rownames(reads.mat) <- events$ID
+      col_names <- c(paste0(cond_labels[1], "_", seq(1, length(inc1[[1]]), 1)),
+                     paste0(cond_labels[2], "_", seq(1, length(inc2[[1]]), 1)) )
+      
+      colnames(reads.mat) <- col_names
+      slot(mats, paste0(type,"_","counts")) <- reads.mat
+      
+      # prepare PSI matrix
+      inc1 <- strsplit(events[ , "IncLevel1"], ",")
+      inc2 <- strsplit(events[ , "IncLevel2"], ",")
+      
+      reads.inc1 <- suppressWarnings(matrix(as.numeric(unlist(inc1)), 
+                     nrow = length(inc1), ncol = length(inc1[[1]]), byrow = TRUE))
+      
+      reads.inc2 <- suppressWarnings(matrix(as.numeric(unlist(inc2)), 
+                     nrow = length(inc2), ncol = length(inc2[[1]]), byrow = TRUE))
+      
+      reads.mat <- cbind(reads.inc1, reads.inc2)
+      
+      rownames(reads.mat) <- events$ID
+      colnames(reads.mat) <- col_names
+      slot(mats, paste0(type,"_","PSI")) <- reads.mat
+      
+      # Number of samples condition 1 and 2
+      mats@n_cond1 <- length(inc1[[1]])
+      mats@n_cond2 <- length(inc2[[1]])
+      mats@conditions <- cond_labels
+  
+      # rMATS stats
+      slot(mats, paste0(type,"_","stats")) <-
+        events[ , c("ID", "PValue", "FDR", "IncLevelDifference")]
+      
+      # Genomic ranges of alternative splicing events
+      grl <- create_GRanges(events, type)
+      slot(mats, paste0(type,"_","gr")) <- grl
+      
+      # Event annotation
+      slot(mats, paste0(type,"_","events")) <-
+        events[ , c("ID", "GeneID", "geneSymbol")]
+    }
 
   }
 
