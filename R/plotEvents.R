@@ -1,3 +1,4 @@
+
 #' Boxplots of PSI distributions by splicing type.
 #' 
 #' @param events a maser object.
@@ -164,7 +165,7 @@ splicingDistribution <- function(events, fdr = 0.05, deltaPSI = 0.1){
 #' @importFrom dplyr filter
 #' @import methods
 volcano <- function(events, type = c("A3SS", "A5SS", "SE", "RI", "MXE"),
-                    fdr = 0.05, deltaPSI = 0.1){
+                    fdr = 0.05, deltaPSI = 0.1, interactive = FALSE){
     
     if(!is(events, "Maser")){
       stop("Parameter events has to be a maser object.")
@@ -172,15 +173,13 @@ volcano <- function(events, type = c("A3SS", "A5SS", "SE", "RI", "MXE"),
     
     type <- match.arg(type)
     
+    stats <- summary(events, type)
     events <- as(events, "list")
-    
-    IncLevelDifference <- NULL
-    Status <- NULL
 
-    stats <- events[[paste0(type,"_","stats")]]
     cond1 <- dplyr::filter(stats, FDR < fdr, IncLevelDifference > deltaPSI)
     cond2 <- dplyr::filter(stats, FDR < fdr, IncLevelDifference < 
                              (-1*deltaPSI))
+                          
 
     status <- rep("Not significant", times = nrow(stats))
     status[stats$ID %in% cond1$ID] <- events$conditions[1]
@@ -195,31 +194,48 @@ volcano <- function(events, type = c("A3SS", "A5SS", "SE", "RI", "MXE"),
     plot.df <- data.frame(ID = stats$ID,
                           deltaPSI = stats$IncLevelDifference,
                           log10pval = log10pval,
+                          geneSymbol = stats$geneSymbol,
                           Status = factor(status,
                                           levels = c("Not significant",
                                                      events$conditions[1],
                                                      events$conditions[2])))
-    if(length(unique(status)) < 3){
-        colors <-  c("blue", "red")
-    } else{
-        colors <-  c("grey","blue", "red")
-    }
 
-    ggplot(plot.df, aes(x=deltaPSI, y=log10pval, colour=Status)) +
-        geom_point(aes(colour = Status)) +
-        scale_colour_manual(values = colors) +
-        theme_bw() +
-        theme(axis.text.x = element_text(size=12), axis.text.y = 
-                element_text(size=12),
-              axis.title.x = element_text(face="plain", colour="black", 
-                                          size=12),
-              axis.title.y = element_text(face="plain", colour="black", 
-                                          size=12),
-              panel.grid.minor = element_blank(),
-              plot.background = element_blank()
-        ) +
-        labs(title="", x = "Delta PSI",
-             y = "Log10 Adj. Pvalue" )
+    # Calculate the color intensity based on ID (normalized to be between 0 and 1)
+    plot.df$color_intensity <- (plot.df$ID - min(plot.df$ID)) / (max(plot.df$ID) - min(plot.df$ID))
+
+    # Generate color scales
+    blue_scale <- colorRampPalette(c("lightblue", "blue"))(100)
+    red_scale <- colorRampPalette(c("pink", "red"))(100)
+
+    # Map the color_intensity to the color scales
+    plot.df$color <- case_when(
+        plot.df$Status == "Not significant" ~ "grey",
+        plot.df$Status == events$conditions[1] ~ blue_scale[round(plot.df$color_intensity*99) + 1],
+        plot.df$Status == events$conditions[2] ~ red_scale[round(plot.df$color_intensity*99) + 1]
+    )
+
+
+
+
+  
+    # If interactive plot - show plotly, otherwise ggplot.
+  plot_ly(plot.df) %>%
+    add_trace(x = ~deltaPSI, y = ~log10pval,
+              type = 'scattergl', mode = 'markers', 
+              marker = list(color = ~color, sizemode = "diameter"),
+              text = ~paste("ID:", ID, " Gene:", geneSymbol),  # adding information on the hover.
+              hoverinfo = "text+x+y") %>%
+    layout(title = "", 
+          xaxis = list(title = "Delta PSI", 
+                        titlefont = list(size = 12), 
+                        tickfont = list(size = 12)), 
+          yaxis = list(title = "Log10 Adj. Pvalue", 
+                        titlefont = list(size = 12), 
+                        tickfont = list(size = 12)), 
+          plot_bgcolor = "white", 
+          showlegend = FALSE)
+    
+    
 }
 
 #' Dotplot representation of splicing events.
