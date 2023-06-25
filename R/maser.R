@@ -123,6 +123,11 @@ create_GRanges <- function(events, type){
   
 }
 
+# Function to convert comma-separated strings to numeric vectors
+convert_to_numeric_vector <- function(column) {
+  as.numeric(unlist(strsplit(column, split = ",")))
+}
+
 #' Create a maser object by importing rMATS splicing events.
 #' 
 #' @param path a character specifiying the folder containing rMATS output files.
@@ -157,6 +162,7 @@ maser <- function(path, cond_labels,
     counts.col <- c("IC_SAMPLE_1", "IC_SAMPLE_2")
   }else{
     counts.col <- c("IJC_SAMPLE_1", "IJC_SAMPLE_2")    
+    abundance.col <- c("IJC_SAMPLE_1", "IJC_SAMPLE_2", "SJC_SAMPLE_1", "SJC_SAMPLE_2")  
   }
   
   if(!grepl("/$", path)){
@@ -186,10 +192,23 @@ maser <- function(path, cond_labels,
       reads.mat <- cbind(reads.inc1, reads.inc2)
       rownames(reads.mat) <- events$ID
       col_names <- c(paste0(cond_labels[1], "_", seq(1, length(inc1[[1]]), 1)),
-                     paste0(cond_labels[2], "_", seq(1, length(inc2[[1]]), 1)) )
+                     paste0(cond_labels[2], "_", seq(1, length(inc2[[1]]), 1)))
       
       colnames(reads.mat) <- col_names
       slot(mats, paste0(type,"_","counts")) <- reads.mat
+      
+      # Abundance
+      ABUNDANCE_SAMPLE_1 <- mapply(function(x, y) x + y, lapply(events[, abundance.col[1]], convert_to_numeric_vector), lapply(events[, abundance.col[3]], convert_to_numeric_vector), SIMPLIFY = FALSE)
+      ABUNDANCE_SAMPLE_2 <- mapply(function(x, y) x + y, lapply(events[, abundance.col[2]], convert_to_numeric_vector), lapply(events[, abundance.col[4]], convert_to_numeric_vector), SIMPLIFY = FALSE)
+      
+      # Calculate means
+      mean_ABUNDANCE_SAMPLE_1 <- sapply(ABUNDANCE_SAMPLE_1, mean)
+      mean_ABUNDANCE_SAMPLE_2 <- sapply(ABUNDANCE_SAMPLE_2, mean)
+      
+      # Create data frame
+      mean_abundance_df <- data.frame(Mean_ABUNDANCE_SAMPLE_1 = mean_ABUNDANCE_SAMPLE_1, 
+                                      Mean_ABUNDANCE_SAMPLE_2 = mean_ABUNDANCE_SAMPLE_2)
+      slot(mats, paste0(type,"_","abundance")) <- mean_abundance_df
       
       # prepare PSI matrix
       inc1 <- strsplit(events[ , "IncLevel1"], ",")
@@ -237,18 +256,23 @@ setClass("Maser",
          slots = list(A3SS_counts = "matrix", A3SS_PSI = "matrix",
                       A3SS_stats = "data.frame", A3SS_events = "data.frame",
                       A3SS_gr = "GRangesList",
+                      A3SS_abundance = "data.frame",
                       A5SS_counts = "matrix", A5SS_PSI = "matrix",
                       A5SS_stats = "data.frame", A5SS_events = "data.frame",
                       A5SS_gr = "GRangesList",
+                      A5SS_abundance = "data.frame",
                       SE_counts = "matrix", SE_PSI = "matrix",
                       SE_stats = "data.frame", SE_events = "data.frame",
                       SE_gr = "GRangesList",
+                      SE_abundance = "data.frame",
                       RI_counts = "matrix", RI_PSI = "matrix",
                       RI_stats = "data.frame", RI_events = "data.frame",
                       RI_gr = "GRangesList",
+                      RI_abundance = "data.frame",
                       MXE_counts = "matrix", MXE_PSI = "matrix",
                       MXE_stats = "data.frame", MXE_events = "data.frame",
                       MXE_gr = "GRangesList",
+                      MXE_abundance = "data.frame",
                       n_cond1 = "numeric",
                       n_cond2 = "numeric",
                       conditions = "character"

@@ -147,6 +147,11 @@ splicingDistribution <- function(events, fdr = 0.05, deltaPSI = 0.1){
 
 }
 
+# Function to convert comma-separated strings to numeric vectors
+convert_to_numeric_vector <- function(column) {
+  as.numeric(unlist(strsplit(column, split = ",")))
+}
+
 #' Volcano plot of splicing events.
 #' 
 #' @param events a maser object.
@@ -170,6 +175,10 @@ volcano <- function(events, type = c("A3SS", "A5SS", "SE", "RI", "MXE"),
     if(!is(events, "Maser")){
       stop("Parameter events has to be a maser object.")
     }
+    abundance <- slot(events, paste0(type, "_abundance"))
+
+    # Get abundance row means between both groups.
+    abundance <- abundance %>% mutate(mean_abundance = rowMeans(abundance, na.rm = TRUE)) 
     
     type <- match.arg(type)
     
@@ -179,7 +188,7 @@ volcano <- function(events, type = c("A3SS", "A5SS", "SE", "RI", "MXE"),
     cond1 <- dplyr::filter(stats, FDR < fdr, IncLevelDifference > deltaPSI)
     cond2 <- dplyr::filter(stats, FDR < fdr, IncLevelDifference < 
                              (-1*deltaPSI))
-                          
+    
 
     status <- rep("Not significant", times = nrow(stats))
     status[stats$ID %in% cond1$ID] <- events$conditions[1]
@@ -192,6 +201,7 @@ volcano <- function(events, type = c("A3SS", "A5SS", "SE", "RI", "MXE"),
     log10pval <- -1*log10(FDR)
 
     plot.df <- data.frame(ID = stats$ID,
+                          mean_abundance = abundance$mean_abundance,
                           deltaPSI = stats$IncLevelDifference,
                           log10pval = log10pval,
                           geneSymbol = stats$geneSymbol,
@@ -201,8 +211,10 @@ volcano <- function(events, type = c("A3SS", "A5SS", "SE", "RI", "MXE"),
                                                      events$conditions[2])))
 
     # Calculate the color intensity based on ID (normalized to be between 0 and 1)
-    plot.df$color_intensity <- (plot.df$ID - min(plot.df$ID)) / (max(plot.df$ID) - min(plot.df$ID))
-
+   plot.df$mean_abundance_log <- log(plot.df$mean_abundance + 1) # adding 1 to avoid log(0)
+   plot.df$color_intensity <- (plot.df$mean_abundance_log - min(plot.df$mean_abundance_log)) / 
+                            (max(plot.df$mean_abundance_log) - min(plot.df$mean_abundance_log))
+  
     # Generate color scales
     blue_scale <- colorRampPalette(c("lightblue", "blue"))(100)
     red_scale <- colorRampPalette(c("pink", "red"))(100)
@@ -213,17 +225,16 @@ volcano <- function(events, type = c("A3SS", "A5SS", "SE", "RI", "MXE"),
         plot.df$Status == events$conditions[1] ~ blue_scale[round(plot.df$color_intensity*99) + 1],
         plot.df$Status == events$conditions[2] ~ red_scale[round(plot.df$color_intensity*99) + 1]
     )
-
-
-
-
   
     # If interactive plot - show plotly, otherwise ggplot.
   plot_ly(plot.df) %>%
     add_trace(x = ~deltaPSI, y = ~log10pval,
               type = 'scattergl', mode = 'markers', 
               marker = list(color = ~color, sizemode = "diameter"),
-              text = ~paste("ID:", ID, " Gene:", geneSymbol),  # adding information on the hover.
+               text = ~paste(" ID:", ID, 
+                            "<br> Gene:", geneSymbol, 
+                            "<br> Mean Abundance:", sprintf("%.2f", mean_abundance),
+                            "<br> Log Mean Abundance:", sprintf("%.2f", mean_abundance_log)),  # adding information on the hover.
               hoverinfo = "text+x+y") %>%
     layout(title = "", 
           xaxis = list(title = "Delta PSI", 
