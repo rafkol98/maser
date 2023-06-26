@@ -152,7 +152,7 @@ maser <- function(path, cond_labels,
                             "JunctionCountOnly",
                             "JCEC", "JC")){
   
-  print("WELCOME TO MASER")
+  print("WELCOME TO MASER!!!")
   ftype <- match.arg(ftype)
   
   rmats_out <- list.files(path, pattern = paste0(ftype, ".txt"),
